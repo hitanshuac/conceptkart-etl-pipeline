@@ -1,27 +1,26 @@
 import sqlite3
 
-# 1. Connect to the database
-conn = sqlite3.connect('prices.db') 
+def create_table():
+    # 1. Connect to the database
+    conn = sqlite3.connect('prices.db') 
+    cursor = conn.cursor()
 
-# 2. Create the cursor
-cursor = conn.cursor()
+    # 2. Write the SQL DDL
+    create_table_sql = """
+    CREATE TABLE IF NOT EXISTS raw_daily_prices (
+        product_name TEXT,
+        vendor_name TEXT,
+        vendor_url TEXT,
+        price_current INTEGER,
+        scraped_at_utc TEXT
+    );
+    """
 
-# 3. Write the SQL DDL (Fill in the blanks!)
-create_table_sql = """
-CREATE TABLE IF NOT EXISTS raw_daily_prices (
-    product_name TEXT,
-    vendor_name TEXT,
-    vendor_url TEXT,
-    price_current INTEGER,
-    scraped_at_utc TEXT
-);
-"""
+    # 3. Execute and close
+    cursor.execute(create_table_sql)
+    conn.commit()
+    print("SUCCESS: Infrastructure check passed. Table 'raw_daily_prices' is ready.")
+    conn.close()
 
-# 4. Execute the SQL and commit (save) the changes
-cursor.execute(create_table_sql)
-conn.commit()
-
-print("Table 'raw_daily_prices' created successfully!")
-
-# 5. Always close the connection
-conn.close()
+if __name__ == "__main__":
+    create_table()

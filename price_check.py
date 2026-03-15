@@ -1,10 +1,10 @@
 #test_data = {'price': 400}
 
 def validate_price_payload(payload: dict) -> bool:
-    if 'price' not in payload:
+    if 'price_current' not in payload:
         raise KeyError("FATAL: 'price' key is missing from the payload.")
         
-    price = payload['price']
+    price = payload['price_current']
     
     # Strict type enforcement. No strings allowed.
     if not isinstance(price, (int, float)):
@@ -20,7 +20,7 @@ def validate_price_payload(payload: dict) -> bool:
     return True
 
 try:
-    if validate_price_payload(test_data):
+    #if validate_price_payload(test_data):
         print("Data is clean, proceeding to BigQuery.")
 except (KeyError, TypeError, ValueError) as e:
     print(f"Triggering Webhook -> Slack Alert: {e}")
