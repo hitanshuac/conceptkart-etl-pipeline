@@ -16,14 +16,24 @@ The pipeline is designed with a strict separation of concerns:
 ## 🚀 Key Features
 - **Atomic Loading**: Ensures that data ingestion is idempotent and crash-resilient.
 - **Relational Integrity**: Utilizes SQLite for a zero-configuration, high-performance local data store.
-- **Automated Verification**: Built-in sanity checks to identify pricing anomalies during the ingestion phase.
+- **Automated Verification & Alerts**: Built-in sanity checks to identify pricing anomalies and trigger instant **Telegram Bot Notifications** when target prices are hit.
 
 ---
 
 ## 🛠️ Technical Stack
 - **Language**: Python 3.x
 - **Storage**: SQLite
-- **Libraries**: `requests`, `sqlite3`
+- **Libraries**: `requests`, `beautifulsoup4`
+- **Alerts**: Telegram Bot API
+
+---
+
+## ⚙️ Configuration
+Set the following environment variables before running the pipeline:
+- `CONCEPTKART_URL`: Target product URL
+- `TARGET_PRICE`: The price threshold for alerts (e.g., `2000`)
+- `TELEGRAM_BOT_TOKEN`: Your Telegram Bot Token
+- `TELEGRAM_CHAT_ID`: Your Telegram Chat ID
 
 ---
 **Focus: Data Engineering, Automation, and Scalable Schema Design.** 🛡️✨

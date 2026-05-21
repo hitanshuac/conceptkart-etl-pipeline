@@ -1,8 +1,10 @@
-#test_data = {'price': 400}
-
-def validate_price_payload(payload: dict) -> bool:
+def validate_price_payload(payload: dict, target_price: int = None) -> tuple[bool, bool]:
+    """
+    Validates the payload and checks if the target price is hit.
+    Returns: (is_valid, is_target_hit)
+    """
     if 'price_current' not in payload:
-        raise KeyError("FATAL: 'price' key is missing from the payload.")
+        raise KeyError("FATAL: 'price_current' key is missing from the payload.")
         
     price = payload['price_current']
     
@@ -11,16 +13,22 @@ def validate_price_payload(payload: dict) -> bool:
         raise TypeError(f"FATAL: Expected int or float for price, got {type(price).__name__}.")
         
     # Boundary constraints
-    if price <= 500:
-        raise ValueError(f"ANOMALY: Price ₹{price} is too low. Did we scrape a cable instead of the DAC?")
+    if price <= 100:
+        raise ValueError(f"ANOMALY: Price ₹{price} is too low. Did we scrape a cable instead of the IEM?")
         
-    if price >= 25000:
+    if price >= 500000:
         raise ValueError(f"ANOMALY: Price ₹{price} is too high. Check extraction logic.")
         
-    return True
+    is_target_hit = False
+    if target_price and price <= target_price:
+        is_target_hit = True
+        
+    return True, is_target_hit
 
-try:
-    #if validate_price_payload(test_data):
-        print("Data is clean, proceeding to BigQuery.")
-except (KeyError, TypeError, ValueError) as e:
-    print(f"Triggering Webhook -> Slack Alert: {e}")
+if __name__ == "__main__":
+    test_data = {'price_current': 1500}
+    try:
+        valid, hit = validate_price_payload(test_data, 2000)
+        print(f"Valid: {valid}, Target Hit: {hit}")
+    except Exception as e:
+        print(f"Error: {e}")
