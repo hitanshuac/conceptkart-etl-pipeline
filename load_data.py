@@ -1,27 +1,38 @@
-import sqlite3
+import os
+from supabase import create_client
+from dotenv import load_dotenv
 
-def load_to_database(payload: dict):
-    conn = None
+def get_supabase_client():
+    # Load the .env file from the dashboard directory if it exists
+    load_dotenv(os.path.join(os.path.dirname(__file__), 'dashboard', '.env'))
+    
+    url = os.environ.get("VITE_SUPABASE_URL", "")
+    key = os.environ.get("VITE_SUPABASE_ANON_KEY", "")
+    
+    if url and not url.startswith('http'):
+        url = f"https://{url}.supabase.co"
+        
+    if not url or not key:
+        raise ValueError("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in environment variables")
+        
+    return create_client(url, key)
+
+def load_to_database(payload: dict, tracked_product_id: int):
     try:
-        conn = sqlite3.connect('prices.db')
-        cursor = conn.cursor()
+        supabase = get_supabase_client()
         
-        insert_sql = """
-        INSERT INTO raw_daily_prices (product_name, vendor_name, vendor_url, price_current, scraped_at_utc)
-        VALUES (?, ?, ?, ?, ?)
-        """
-        values = tuple(payload.values())
+        # Insert into raw_daily_prices
+        response = supabase.table('raw_daily_prices').insert({
+            'tracked_product_id': tracked_product_id,
+            'product_name': payload.get('product_name'),
+            'vendor_name': payload.get('vendor_name'),
+            'vendor_url': payload.get('vendor_url'),
+            'price_current': payload.get('price_current'),
+            'scraped_at_utc': payload.get('scraped_at_utc')
+        }).execute()
         
-        cursor.execute(insert_sql, values)
-        conn.commit()
-        print("SUCCESS: Row inserted into prices.db")
+        print("SUCCESS: Row inserted into Supabase raw_daily_prices")
         
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"FATAL DB ERROR: Could not insert row. Details: {e}")
         # Here is where our Slack Webhook would fire
-        
-    finally:
-        # This ALWAYS runs, even if the try block crashes.
-        if conn:
-            conn.close()
-            print("Database connection safely closed.")

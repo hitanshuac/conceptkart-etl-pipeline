@@ -5,13 +5,18 @@ import load_data
 import notifier
 import sqlite3
 
+from load_data import get_supabase_client
+
 def get_tracked_products():
-    conn = sqlite3.connect('prices.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, url, target_price FROM tracked_products WHERE is_active = 1")
-    products = cursor.fetchall()
-    conn.close()
-    return products
+    try:
+        supabase = get_supabase_client()
+        response = supabase.table('tracked_products').select('id, url, target_price').eq('is_active', True).execute()
+        
+        # Map list of dicts to list of tuples for backwards compatibility with the loop
+        return [(item['id'], item['url'], item['target_price']) for item in response.data]
+    except Exception as e:
+        print(f"Error fetching from Supabase: {e}")
+        return []
 
 def main():
     print("\n--- STARTING ETL PIPELINE ---")
@@ -40,7 +45,7 @@ def main():
                     print(f"Validation passed. Current Price: Rs.{raw_data['price_current']}. Loading to warehouse...")
                     
                     # 5. Load
-                    load_data.load_to_database(raw_data)
+                    load_data.load_to_database(raw_data, prod_id)
                     
                     # 6. Notify if hit
                     if is_target_hit:
