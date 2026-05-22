@@ -35,3 +35,12 @@ This document tracks historical errors encountered in the ETL pipeline and dashb
   - Migrated the Python backend (`load_data.py`, `main.py`, `db_setup.py`) to use the `supabase` Python SDK instead of SQLite.
   - Added `python-dotenv` so the Python script can share the dashboard's `.env` file seamlessly.
 - **Status**: FIXED & RETAINED. Local SQLite is completely deprecated.
+
+### 6. RLS Insert Error & API Provider Pivot
+- **Error**: Dashboard failed to add a product with `new row violates row-level security policy for table "tracked_products"`. Additionally, user hit Gemini API rate limits.
+- **Cause**: Supabase blocks UI inserts by default. Gemini free tier is highly restrictive for automated scraping.
+- **Resolution**: 
+  - Instructed user to run the `Allow public insert` RLS policy SQL snippet in Supabase.
+  - Ripped out `google-genai` and replaced it with the official `openai` Python SDK.
+  - Reconfigured `extractor.py` to seamlessly route requests through OpenRouter or Groq based on which API key the user provides, defaulting to free/cheap Llama 3 models using strict JSON mode.
+- **Status**: FIXED & RETAINED. Architecture is now provider-agnostic.

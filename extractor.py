@@ -4,11 +4,11 @@ from datetime import datetime, timezone
 import json
 import re
 import os
+
 try:
-    from google import genai
-    from google.genai import types
+    from openai import OpenAI
 except ImportError:
-    genai = None
+    OpenAI = None
 
 def scrape_conceptkart(url: str = None) -> dict:
     if not url:
@@ -71,34 +71,39 @@ def scrape_conceptkart(url: str = None) -> dict:
                 pass
 
     if price_current == 0:
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if api_key and genai:
+        api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("GROQ_API_KEY")
+        if api_key and OpenAI:
             print("WARNING: Standard extractors failed. Falling back to AI Self-Healing scraper...")
             try:
-                client = genai.Client(api_key=api_key)
-                
-                # Strip excessive whitespace and truncate to save tokens
-                body_text = soup.body.get_text(separator=' ', strip=True) if soup.body else response.text
-                prompt = "Extract the current selling price (as an integer in INR, without currency symbols) and the product name from the following webpage text."
-                
-                res = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=[prompt, body_text[:30000]],
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema={
-                            "type": "OBJECT",
-                            "properties": {
-                                "product_name": {"type": "STRING", "description": "The name of the product"},
-                                "price_current": {"type": "INTEGER", "description": "The current selling price as an integer"}
-                            },
-                            "required": ["product_name", "price_current"]
-                        },
-                        temperature=0.0
-                    )
+                # Detect if the user provided a Groq key (usually starts with gsk_) to auto-configure
+                is_groq = api_key.startswith("gsk_") or os.environ.get("GROQ_API_KEY") == api_key
+                base_url = "https://api.groq.com/openai/v1" if is_groq else "https://openrouter.ai/api/v1"
+                model_name = "llama3-8b-8192" if is_groq else "meta-llama/llama-3-8b-instruct:free"
+
+                client = OpenAI(
+                    base_url=base_url,
+                    api_key=api_key,
                 )
                 
-                extracted = json.loads(res.text)
+                # Strip excessive whitespace and truncate to save tokens/context limits
+                body_text = soup.body.get_text(separator=' ', strip=True) if soup.body else response.text
+                truncated_text = body_text[:15000]
+                
+                system_prompt = "You are a specialized data extractor. Output ONLY valid JSON containing EXACTLY two keys: 'product_name' (string) and 'price_current' (integer). Do not include any markdown formatting or code blocks, just raw JSON."
+                
+                res = client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Extract the product name and current selling price in INR from this webpage text:\n\n{truncated_text}"}
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.0
+                )
+                
+                content = res.choices[0].message.content
+                extracted = json.loads(content)
+                
                 price_current = extracted.get('price_current', 0)
                 product_name = extracted.get('product_name', product_name)
                 
