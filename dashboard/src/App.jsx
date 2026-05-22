@@ -7,6 +7,9 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isSetup, setIsSetup] = useState(false)
+  const [newUrl, setNewUrl] = useState('')
+  const [newTarget, setNewTarget] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     // Check if Supabase URL and Key are provided
@@ -38,6 +41,30 @@ function App() {
       setError(error.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleAddProduct(e) {
+    e.preventDefault()
+    if (!newUrl || !newTarget) return
+    
+    try {
+      setIsSubmitting(true)
+      const { error } = await supabase
+        .from('tracked_products')
+        .insert([{ url: newUrl, target_price: parseInt(newTarget, 10) }])
+        
+      if (error) throw error
+      
+      setNewUrl('')
+      setNewTarget('')
+      // Refresh the grid
+      fetchProducts()
+    } catch (err) {
+      console.error('Error adding product:', err)
+      alert(`Failed to add product: ${err.message}`)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -100,7 +127,33 @@ function App() {
           <p>Add products to your Supabase database to start monitoring prices.</p>
         </div>
       ) : (
-        <div className="dashboard-grid">
+        <>
+          <form className="add-product-form" onSubmit={handleAddProduct}>
+            <div className="form-group">
+              <input 
+                type="url" 
+                placeholder="Paste ConceptKart URL here..." 
+                value={newUrl} 
+                onChange={(e) => setNewUrl(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <input 
+                type="number" 
+                placeholder="Target Price (Rs.)" 
+                value={newTarget} 
+                onChange={(e) => setNewTarget(e.target.value)}
+                required
+                min="1"
+              />
+            </div>
+            <button type="submit" className="submit-btn" disabled={isSubmitting}>
+              {isSubmitting ? 'Adding...' : 'Track Product'}
+            </button>
+          </form>
+
+          <div className="dashboard-grid">
           {products.map((product) => {
             const isTargetHit = product.price_current <= product.target_price;
             
@@ -146,7 +199,8 @@ function App() {
               </div>
             )
           })}
-        </div>
+          </div>
+        </>
       )}
     </div>
   )

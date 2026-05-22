@@ -3,6 +3,12 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 import json
 import re
+import os
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    genai = None
 
 def scrape_conceptkart(url: str = None) -> dict:
     if not url:
@@ -65,7 +71,44 @@ def scrape_conceptkart(url: str = None) -> dict:
                 pass
 
     if price_current == 0:
-        raise ValueError(f"FATAL: Could not extract price from {url}")
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if api_key and genai:
+            print("WARNING: Standard extractors failed. Falling back to AI Self-Healing scraper...")
+            try:
+                client = genai.Client(api_key=api_key)
+                
+                # Strip excessive whitespace and truncate to save tokens
+                body_text = soup.body.get_text(separator=' ', strip=True) if soup.body else response.text
+                prompt = "Extract the current selling price (as an integer in INR, without currency symbols) and the product name from the following webpage text."
+                
+                res = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[prompt, body_text[:30000]],
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema={
+                            "type": "OBJECT",
+                            "properties": {
+                                "product_name": {"type": "STRING", "description": "The name of the product"},
+                                "price_current": {"type": "INTEGER", "description": "The current selling price as an integer"}
+                            },
+                            "required": ["product_name", "price_current"]
+                        },
+                        temperature=0.0
+                    )
+                )
+                
+                extracted = json.loads(res.text)
+                price_current = extracted.get('price_current', 0)
+                product_name = extracted.get('product_name', product_name)
+                
+                if price_current > 0:
+                    print(f"SUCCESS: AI successfully recovered data. Product: {product_name}, Price: Rs.{price_current}")
+            except Exception as ai_e:
+                print(f"AI Scraper Fallback failed: {ai_e}")
+
+    if price_current == 0:
+        raise ValueError(f"FATAL: Could not extract price from {url} even with AI fallback.")
 
     return {
         'product_name': product_name,
