@@ -31,6 +31,9 @@ def scrape_conceptkart(url: str = None) -> dict:
             'scraped_at_utc': datetime.now(timezone.utc).isoformat()
         }
         
+    if response.url.rstrip('/') == 'https://conceptkart.com':
+        raise ValueError(f"FATAL: Product URL redirected to homepage. Product likely removed or URL is invalid: {url}")
+        
     soup = BeautifulSoup(response.text, 'html.parser')
     
     # Try to extract from Open Graph meta tags (common in Shopify)

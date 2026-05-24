@@ -155,22 +155,25 @@ function App() {
 
           <div className="dashboard-grid">
           {products.map((product) => {
-            const isTargetHit = product.price_current <= product.target_price;
+            const hasBeenScraped = product.price_current && product.price_current > 0;
+            const isTargetHit = hasBeenScraped && product.price_current <= product.target_price;
             
             return (
               <div key={product.id} className="card">
                 <div className="card-header">
-                  <h3 className="card-title">{product.product_name || 'Unknown Product'}</h3>
+                  <h3 className="card-title">
+                    {hasBeenScraped ? product.product_name : 'Pending Initial Scrape...'}
+                  </h3>
                   <span className="vendor-tag">{product.vendor_name || 'ConceptKart'}</span>
                 </div>
                 
                 <div className="price-container">
                   <span className="current-price">
-                    {formatCurrency(product.price_current || 0)}
+                    {hasBeenScraped ? formatCurrency(product.price_current) : 'Pending'}
                   </span>
                   {product.target_price && (
                     <span className="target-price">
-                      {formatCurrency(product.target_price)}
+                       (Target: {formatCurrency(product.target_price)})
                     </span>
                   )}
                 </div>
@@ -185,7 +188,7 @@ function App() {
                 <div className="card-footer">
                   <div className="last-updated">
                     <Clock size={14} />
-                    {formatDate(product.scraped_at_utc || product.updated_at)}
+                    {hasBeenScraped ? formatDate(product.scraped_at_utc) : 'Never updated'}
                   </div>
                   <a 
                     href={product.url || '#'} 

@@ -12,9 +12,9 @@ def notify_price_drop(product_name: str, price: int, url: str):
     bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
     chat_id = os.environ.get('TELEGRAM_CHAT_ID')
     
-    # Fallback to standard output if credentials aren't provided
     if not bot_token or not chat_id:
-        print(f"NOTIFYING (Terminal Fallback): {title} - {product_name} is now Rs.{price}! Buy it here: {url}")
+        fallback_title = "Target Price Hit!"
+        print(f"NOTIFYING (Terminal Fallback): {fallback_title} - {product_name} is now Rs.{price}! Buy it here: {url}")
         print("WARNING: Telegram credentials not found. Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID.")
         return
         
