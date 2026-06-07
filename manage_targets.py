@@ -1,62 +1,68 @@
-import sqlite3
 import argparse
 import sys
-
-DB_PATH = 'prices.db'
-
-def get_connection():
-    return sqlite3.connect(DB_PATH)
+from load_data import get_supabase_client
 
 def list_targets():
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, url, target_price, is_active FROM tracked_products")
-        rows = cursor.fetchall()
+    try:
+        supabase = get_supabase_client()
+        response = supabase.table("tracked_products").select("id, url, target_price, is_active").execute()
+        rows = response.data
         
         print("\n--- Tracked Products ---")
         if not rows:
             print("No products currently tracked.")
         for row in rows:
-            status = "ACTIVE" if row[3] else "INACTIVE"
-            print(f"[{row[0]}] {status} | Target: Rs.{row[2]} | URL: {row[1]}")
+            status = "ACTIVE" if row.get("is_active") else "INACTIVE"
+            print(f"[{row.get('id')}] {status} | Target: Rs.{row.get('target_price')} | URL: {row.get('url')}")
         print("------------------------\n")
+    except Exception as e:
+        print(f"ERROR: Could not list targets. {e}")
 
 def add_target(url: str, target_price: int):
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        try:
-            cursor.execute(
-                "INSERT INTO tracked_products (url, target_price) VALUES (?, ?)",
-                (url, target_price)
-            )
-            conn.commit()
+    try:
+        supabase = get_supabase_client()
+        response = supabase.table("tracked_products").insert({
+            "url": url,
+            "target_price": target_price,
+            "is_active": True
+        }).execute()
+        
+        # Check if insert was successful
+        if response.data:
             print(f"SUCCESS: Added {url} with target Rs.{target_price}")
-        except sqlite3.IntegrityError:
+        else:
+            print(f"ERROR: Failed to add {url}")
+    except Exception as e:
+        if "duplicate key value violates unique constraint" in str(e).lower():
             print("ERROR: This URL is already being tracked.")
+        else:
+            print(f"ERROR: Could not add target. {e}")
 
 def remove_target(target_id: int):
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM tracked_products WHERE id = ?", (target_id,))
-        if cursor.rowcount > 0:
-            conn.commit()
+    try:
+        supabase = get_supabase_client()
+        response = supabase.table("tracked_products").delete().eq("id", target_id).execute()
+        if response.data:
             print(f"SUCCESS: Removed product ID {target_id}")
         else:
             print(f"ERROR: No product found with ID {target_id}")
+    except Exception as e:
+        print(f"ERROR: Could not remove target. {e}")
 
-def toggle_target(target_id: int, is_active: int):
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE tracked_products SET is_active = ? WHERE id = ?", (is_active, target_id))
-        if cursor.rowcount > 0:
-            conn.commit()
+def toggle_target(target_id: int, is_active: bool):
+    try:
+        supabase = get_supabase_client()
+        response = supabase.table("tracked_products").update({"is_active": is_active}).eq("id", target_id).execute()
+        if response.data:
             status = "activated" if is_active else "deactivated"
             print(f"SUCCESS: Product ID {target_id} has been {status}.")
         else:
             print(f"ERROR: No product found with ID {target_id}")
+    except Exception as e:
+        print(f"ERROR: Could not toggle target. {e}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Manage ETL Tracked Products")
+    parser = argparse.ArgumentParser(description="Manage ETL Tracked Products in Supabase")
     subparsers = parser.add_subparsers(dest='command', help='Commands')
 
     # List
@@ -88,9 +94,9 @@ def main():
     elif args.command == 'remove':
         remove_target(args.id)
     elif args.command == 'disable':
-        toggle_target(args.id, 0)
+        toggle_target(args.id, False)
     elif args.command == 'enable':
-        toggle_target(args.id, 1)
+        toggle_target(args.id, True)
     else:
         parser.print_help()
 

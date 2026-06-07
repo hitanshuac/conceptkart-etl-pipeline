@@ -1,11 +1,14 @@
 import os
 from supabase import create_client
+from price_check import _quarantine_record
 from dotenv import load_dotenv
 
 def get_supabase_client():
-    # Load the .env file from the dashboard directory if it exists
-    load_dotenv(os.path.join(os.path.dirname(__file__), 'dashboard', '.env'))
+    # Load from dashboard/.env since that's where Vite keeps credentials
+    env_path = os.path.join(os.path.dirname(__file__), 'dashboard', '.env')
+    load_dotenv(env_path)
     
+    # 12-Factor config: use os.environ instead of hardcoded .env path
     url = os.environ.get("VITE_SUPABASE_URL", "")
     key = os.environ.get("VITE_SUPABASE_ANON_KEY", "")
     
@@ -21,8 +24,8 @@ def load_to_database(payload: dict, tracked_product_id: int):
     try:
         supabase = get_supabase_client()
         
-        # Insert into raw_daily_prices
-        response = supabase.table('raw_daily_prices').insert({
+        # Upsert into raw_daily_prices to guarantee idempotency
+        response = supabase.table('raw_daily_prices').upsert({
             'tracked_product_id': tracked_product_id,
             'product_name': payload.get('product_name'),
             'vendor_name': payload.get('vendor_name'),
@@ -31,8 +34,10 @@ def load_to_database(payload: dict, tracked_product_id: int):
             'scraped_at_utc': payload.get('scraped_at_utc')
         }).execute()
         
-        print("SUCCESS: Row inserted into Supabase raw_daily_prices")
+        print(f"  [LOADER] SUCCESS: Row inserted into Supabase for ID {tracked_product_id}")
         
     except Exception as e:
-        print(f"FATAL DB ERROR: Could not insert row. Details: {e}")
-        # Here is where our Slack Webhook would fire
+        print(f"  [LOADER] FATAL DB ERROR: Could not insert row. Routing to DLQ. Details: {e}")
+        # Store-and-Forward fallback: don't lose the data, queue it!
+        payload["tracked_product_id"] = tracked_product_id  # ensure we know where it belongs
+        _quarantine_record(payload, "SupabaseUploadFailed", str(e))

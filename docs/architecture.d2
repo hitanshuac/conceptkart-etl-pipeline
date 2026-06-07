@@ -1,0 +1,66 @@
+direction: right
+
+classes: {
+  plane: {
+    style: {
+      fill: transparent
+      stroke: "#58a6ff"
+      stroke-dash: 5
+      border-radius: 5
+    }
+  }
+  component: {
+    style: {
+      fill: "#1f2428"
+      stroke: "#444c56"
+      font-color: "#c9d1d9"
+      border-radius: 5
+      shadow: true
+    }
+  }
+  database: {
+    shape: cylinder
+    style: {
+      fill: "#1f2428"
+      stroke: "#444c56"
+      font-color: "#c9d1d9"
+    }
+  }
+}
+
+control: Control Plane {
+  class: plane
+  
+  scheduler: Scheduler (APScheduler) {class: component}
+  orchestrator: Cascade Orchestrator {class: component}
+  validator: Pydantic Validator {class: component}
+  
+  scheduler -> orchestrator: Trigger Scraping
+  orchestrator -> validator: Validate Payload
+}
+
+extraction: Extraction Cascade (App Plane) {
+  class: plane
+  
+  tier1: Tier 1 (curl-cffi) {class: component}
+  tier2: Tier 2 (Crawl4AI) {class: component}
+  tier3: Tier 3 (LLM) {class: component}
+  
+  tier1 -> tier2: Fallback
+  tier2 -> tier3: Fallback
+}
+
+data: Observability & Data Plane {
+  class: plane
+  
+  supabase: Supabase (Cloud Postgres) {class: database}
+  duckdb: DuckDB Telemetry {class: database}
+  dlq: Parquet DLQ {class: database}
+  
+  dlq -> supabase: Store & Forward Retry
+}
+
+control.orchestrator -> extraction.tier1: Execute Extraction
+control.validator -> data.supabase: Upsert Data
+control.validator -> data.dlq: Quarantine Failures
+control.orchestrator -> data.duckdb: Log Metrics

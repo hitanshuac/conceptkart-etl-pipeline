@@ -1,127 +1,163 @@
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime, timezone
-import json
-import re
-import os
+"""
+Extraction Cascade Orchestrator.
 
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = None
+Routes extraction requests through the 3-tier cascade:
+  Tier 1 (curl-cffi + BS4) → Tier 2 (Crawl4AI browser) → Tier 3 (LLM AI)
+
+Each tier falls through to the next on failure. Circuit breakers
+prevent repeatedly calling tiers that are consistently failing
+for a specific domain.
+
+This module replaces the original monolithic scrape_conceptkart() function
+with a site-agnostic, cascading extraction engine.
+"""
+
+import time
+from datetime import datetime, timezone
+from typing import Optional
+from urllib.parse import urlparse
+
+from src.models import ScrapedProduct, SiteConfig, PipelineMetric
+from src.extractors.tier1_http import Tier1HttpExtractor
+from src.extractors.tier2_browser import Tier2BrowserExtractor
+from src.extractors.tier3_llm import Tier3LlmExtractor
+from src.sites.registry import get_site_config, cache_site_config
+from src.stealth.fingerprints import get_random_delay
+from src.observability.logger import log_error
+from src.observability.metrics import record_metric
+
+
+# Singleton extractor instances (circuit breaker state persists across calls)
+_tier1 = Tier1HttpExtractor()
+_tier2 = Tier2BrowserExtractor()
+_tier3 = Tier3LlmExtractor()
+
+
+def extract_product(url: str, tracked_product_id: Optional[int] = None) -> Optional[ScrapedProduct]:
+    """Run the 3-tier extraction cascade for a product URL.
+    
+    Args:
+        url: The product page URL to scrape.
+        tracked_product_id: Optional ID for telemetry correlation.
+        
+    Returns:
+        ScrapedProduct on success, None on total failure.
+    """
+    domain = urlparse(url).netloc.replace("www.", "")
+    site_config = get_site_config(domain)
+    start_ms = time.monotonic_ns()
+
+    print(f"\n  Extracting: {url}")
+    print(f"  Domain: {domain} | JS required: {site_config.requires_js} | LLM required: {site_config.requires_llm}")
+
+    # Determine which tiers to attempt
+    tiers = _build_tier_sequence(site_config)
+
+    result: Optional[ScrapedProduct] = None
+    last_error: Optional[str] = None
+
+    for tier_name, extractor in tiers:
+        try:
+            print(f"  Attempting {tier_name}...")
+            result = extractor.extract(url, site_config=site_config)
+
+            if result:
+                print(f"  [SUCCESS] {tier_name} succeeded: {result.product_name} @ Rs.{result.price_current}")
+
+                # If Tier 3 succeeded on an unknown site, cache the config
+                if tier_name == "tier3_llm" and domain not in _get_known_domains():
+                    cache_site_config(domain, SiteConfig(requires_llm=True))
+
+                # Record success metric
+                _record(domain, tracked_product_id, tier_name,
+                        int((time.monotonic_ns() - start_ms) / 1_000_000), True)
+                return result
+            else:
+                print(f"  [FAIL] {tier_name} returned None.")
+                last_error = f"{tier_name}_returned_none"
+
+        except Exception as e:
+            print(f"  [FAIL] {tier_name} raised: {e}")
+            last_error = type(e).__name__
+            log_error(e, component=f"extractor.{tier_name}", domain=domain, tier=tier_name)
+
+    # All tiers failed
+    total_ms = int((time.monotonic_ns() - start_ms) / 1_000_000)
+    print(f"  [FATAL] ALL TIERS FAILED for {url} (total: {total_ms}ms)")
+    _record(domain, tracked_product_id, "all_failed", total_ms, False, last_error)
+    return None
+
+
+def _build_tier_sequence(site_config: SiteConfig) -> list[tuple[str, object]]:
+    """Build the tier execution sequence based on site config.
+    
+    Some sites are known to require JS (skip Tier 1) or LLM (skip Tier 1+2).
+    """
+    tiers = []
+
+    if not site_config.requires_js and not site_config.requires_llm:
+        tiers.append(("tier1_http", _tier1))
+
+    if not site_config.requires_llm:
+        tiers.append(("tier2_browser", _tier2))
+
+    tiers.append(("tier3_llm", _tier3))
+
+    return tiers
+
+
+def _get_known_domains() -> set[str]:
+    """Get the set of domains with hardcoded configs."""
+    from src.sites.registry import SITE_REGISTRY
+    return set(SITE_REGISTRY.keys())
+
+
+def _record(
+    domain: str,
+    product_id: Optional[int],
+    tier: str,
+    latency_ms: int,
+    success: bool,
+    error_type: Optional[str] = None,
+) -> None:
+    """Record a pipeline metric to the DuckDB telemetry plane."""
+    try:
+        record_metric(PipelineMetric(
+            timestamp_utc=datetime.now(timezone.utc),
+            domain=domain,
+            tracked_product_id=product_id,
+            tier_used=tier,
+            latency_ms=latency_ms,
+            success=success,
+            error_type=error_type,
+        ))
+    except Exception:
+        pass  # Telemetry must never crash the pipeline
+
+
+# === BACKWARDS COMPATIBILITY ===
+# The original codebase calls `scrape_conceptkart(url)` from main.py.
+# This shim preserves that interface while routing through the new cascade.
 
 def scrape_conceptkart(url: str = None) -> dict:
+    """Legacy interface — routes through the new extraction cascade.
+    
+    Returns a plain dict (not Pydantic) for backwards compatibility
+    with the existing load_data.py and price_check.py modules.
+    """
     if not url:
-        # Fallback URL for testing if none is provided
-        url = 'https://conceptkart.com/products/shanling-eh1'
-        
-    print(f"SCRAPING: Fetching data from {url}...")
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        print(f"WARNING: Failed to retrieve page (Status code: {response.status_code}). Using mock data for testing.")
+        url = "https://conceptkart.com/products/shanling-eh1"
+
+    result = extract_product(url)
+
+    if result:
         return {
-            'product_name': 'Mock IEM (Fallback Data)',
-            'vendor_name': 'ConceptKart',
-            'vendor_url': url,
-            'price_current': 1500,
-            'scraped_at_utc': datetime.now(timezone.utc).isoformat()
+            "product_name": result.product_name,
+            "vendor_name": result.vendor_name,
+            "vendor_url": result.vendor_url,
+            "price_current": result.price_current,
+            "scraped_at_utc": result.scraped_at_utc.isoformat(),
         }
-        
-    if response.url.rstrip('/') == 'https://conceptkart.com':
-        raise ValueError(f"FATAL: Product URL redirected to homepage. Product likely removed or URL is invalid: {url}")
-        
-    soup = BeautifulSoup(response.text, 'html.parser')
-    
-    # Try to extract from Open Graph meta tags (common in Shopify)
-    title_meta = soup.find('meta', property='og:title')
-    price_meta = soup.find('meta', property='og:price:amount')
-    
-    product_name = title_meta['content'] if title_meta else 'Unknown Product'
-    price_current = 0
-    
-    if price_meta and price_meta.get('content'):
-        try:
-            price_current = int(float(price_meta['content']))
-        except ValueError:
-            pass
-            
-    # Fallback if meta tags are missing: look for price in JSON-LD or standard classes
-    if price_current == 0:
-        # Search for Shopify product JSON
-        for script in soup.find_all('script', type='application/ld+json'):
-            try:
-                data = json.loads(script.string)
-                if '@type' in data and data['@type'] == 'Product':
-                    if 'offers' in data and 'price' in data['offers']:
-                        price_current = int(float(data['offers']['price']))
-                        product_name = data.get('name', product_name)
-                        break
-            except (json.JSONDecodeError, TypeError, KeyError):
-                continue
-                
-    # Final fallback for Conceptkart specifically (class names)
-    if price_current == 0:
-        price_elem = soup.find(class_=re.compile(r'price-item--regular|price__regular'))
-        if price_elem:
-            price_text = price_elem.text.strip().replace('Rs.', '').replace(',', '').replace('₹', '')
-            try:
-                price_current = int(float(price_text))
-            except ValueError:
-                pass
 
-    if price_current == 0:
-        api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("GROQ_API_KEY")
-        if api_key and OpenAI:
-            print("WARNING: Standard extractors failed. Falling back to AI Self-Healing scraper...")
-            try:
-                # Detect if the user provided a Groq key (usually starts with gsk_) to auto-configure
-                is_groq = api_key.startswith("gsk_") or os.environ.get("GROQ_API_KEY") == api_key
-                base_url = "https://api.groq.com/openai/v1" if is_groq else "https://openrouter.ai/api/v1"
-                model_name = "llama3-8b-8192" if is_groq else "meta-llama/llama-3-8b-instruct:free"
-
-                client = OpenAI(
-                    base_url=base_url,
-                    api_key=api_key,
-                )
-                
-                # Strip excessive whitespace and truncate to save tokens/context limits
-                body_text = soup.body.get_text(separator=' ', strip=True) if soup.body else response.text
-                truncated_text = body_text[:15000]
-                
-                system_prompt = "You are a specialized data extractor. Output ONLY valid JSON containing EXACTLY two keys: 'product_name' (string) and 'price_current' (integer). Do not include any markdown formatting or code blocks, just raw JSON."
-                
-                res = client.chat.completions.create(
-                    model=model_name,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": f"Extract the product name and current selling price in INR from this webpage text:\n\n{truncated_text}"}
-                    ],
-                    response_format={"type": "json_object"},
-                    temperature=0.0
-                )
-                
-                content = res.choices[0].message.content
-                extracted = json.loads(content)
-                
-                price_current = extracted.get('price_current', 0)
-                product_name = extracted.get('product_name', product_name)
-                
-                if price_current > 0:
-                    print(f"SUCCESS: AI successfully recovered data. Product: {product_name}, Price: Rs.{price_current}")
-            except Exception as ai_e:
-                print(f"AI Scraper Fallback failed: {ai_e}")
-
-    if price_current == 0:
-        raise ValueError(f"FATAL: Could not extract price from {url} even with AI fallback.")
-
-    return {
-        'product_name': product_name,
-        'vendor_name': 'ConceptKart',
-        'vendor_url': url,
-        'price_current': price_current,
-        'scraped_at_utc': datetime.now(timezone.utc).isoformat()
-    }
+    # Total cascade failure — raise to maintain existing error handling behavior
+    raise ValueError(f"FATAL: All extraction tiers failed for {url}")
