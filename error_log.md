@@ -44,3 +44,21 @@ This document tracks historical errors encountered in the ETL pipeline and dashb
   - Ripped out `google-genai` and replaced it with the official `openai` Python SDK.
   - Reconfigured `extractor.py` to seamlessly route requests through OpenRouter or Groq based on which API key the user provides, defaulting to free/cheap Llama 3 models using strict JSON mode.
 - **Status**: FIXED & RETAINED. Architecture is now provider-agnostic.
+
+### 7. Uncommitted Fixes Causing Stale Github Actions & Pending UI State
+- **Error**: Dashboard showed "Pending Initial Scrape..." and "Never updated" for newly added products (e.g. ₹17,000 target). The cloud pipeline was failing to process them.
+- **Cause**: Previous critical bug fixes to `extractor.py` (AI hallucination on redirects), `notifier.py` (Windows emoji charmap crash), and `App.jsx` (UI handling of 0 price) were saved locally but never pushed to GitHub. The GitHub Actions cron job checked out the `main` branch, which still contained the broken code, preventing new products from being processed.
+- **Resolution**: Committed all outstanding local modifications to the repository and pushed them to GitHub (`git add ... && git commit ... && git push`). Manually triggered a local run of `main.py` to immediately scrape pending targets and populate `raw_daily_prices`.
+- **Status**: FIXED & RETAINED. Always ensure local hotfixes are pushed to trigger remote environments.
+
+### 8. AI Agent Stale Context Failure & Hallucinated Templates
+- **Error**: The AI agent failed to implement the correct `.agents/product/templates/` and `semantic-release.md` workflow, instead hallucinating that unrelated `openspec` templates from a sub-engine were the correct choice.
+- **Cause**: The agent cloned the upstream reference repository (`Antigravity_Environment_Max`) at the start of the session but failed to run `git pull` before executing later requests. The upstream repo had been updated with new templates, but the agent operated blindly on the stale local clone.
+- **Resolution**: The agent must run `git pull origin main` on any cloned reference repositories immediately prior to executing read/scaffold workflows to ensure the context is current. The incorrect `openspec` directory was reverted, and the correct templates were implemented.
+- **Status**: FIXED & RETAINED. Rule: Always assert state currency (`git pull`) before reading architectural workflows.
+
+### 9. Solipsistic Verification (Missing User Testing Instructions)
+- **Error**: The AI agent verified the backend code was functional by reading the local terminal output but entirely failed to provide the human user with instructions on how to test the pipeline or view the React Dashboard.
+- **Cause**: Focus on internal system validation instead of end-user usability. The `README.md` was updated with architecture but lacked practical run commands for the frontend and backend coupling.
+- **Resolution**: Added a strict "Local Development & Testing Guide" to the `README.md`. Agents must explicitly provide human users with the exact terminal commands required to run and test the full-stack system locally (frontend and backend) upon completion of any task.
+- **Status**: FIXED & RETAINED. Rule: Always provide explicit, step-by-step UI and CLI testing instructions to the human user after verifying code.

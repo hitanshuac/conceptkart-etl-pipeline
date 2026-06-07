@@ -47,7 +47,7 @@ The backend pipeline operates a **3-Tier Fallback Cascade** to guarantee 99%+ sc
 
 ## ⚙️ Configuration & Setup
 
-Set the following environment variables in your local `.env` or `dashboard/.env` file:
+Set the following environment variables in your local `dashboard/.env` file. (The Python backend automatically sources credentials from the dashboard's environment to ensure parity).
 
 ```env
 # Cloud Database (Required)
@@ -65,21 +65,50 @@ TELEGRAM_CHAT_ID=...
 WEBHOOK_URL=https://hooks.slack.com/...
 ```
 
-## 💻 Usage
+---
 
-**1. Manage Tracking Targets**
-You can add tracking targets via the React Dashboard or directly through the synchronized CLI:
+## 🧪 Local Development & Testing Guide
+
+To test the system end-to-end, follow these steps:
+
+### 1. Start the React Dashboard
+The dashboard allows you to visualize the data in real-time.
 ```bash
-python manage_targets.py add "https://conceptkart.com/products/example-iem" 2000
+# Navigate to the dashboard directory
+cd dashboard
+
+# Install dependencies
+npm install
+
+# Start the Vite development server
+npm run dev
+```
+Open your browser to `http://localhost:5173`. You should see the UI. If no data exists, it will prompt you to run the initial scrape.
+
+### 2. Add a Tracking Target
+You can add a product to track either through the Dashboard UI, or via the Python CLI. Open a new terminal window at the root of the project:
+```bash
+# Add a product to track (Target price: Rs. 17000)
+python manage_targets.py add "https://conceptkart.com/products/shanling-eh1-desktop-dac-and-headphone-amplifier" 17000
+
+# Verify it was added to the Supabase tracking queue
 python manage_targets.py list
 ```
 
-**2. Run the Pipeline**
-Run a single batch scrape:
+### 3. Run the Backend Extraction Pipeline
+Manually trigger the scraper to extract data, validate it, and push it to Supabase.
 ```bash
 python main.py
 ```
-Or start the continuous scheduling daemon (runs every 6 hours by default):
+*Watch the terminal logs. You will see the 3-Tier Cascade execute. If the price matches the target, it will trigger the Notifier.*
+
+### 4. Verify in the Dashboard
+Once `main.py` finishes:
+1. Go back to your browser `http://localhost:5173`.
+2. Refresh the page. You should now see the product listed, its current price, and the historical trend chart populated with the newly scraped data point!
+
+### 5. Running Continuously (Production)
+To run the scraper continuously in the background (default: every 6 hours):
 ```bash
 python daemon.py
 ```
