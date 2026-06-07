@@ -1,6 +1,6 @@
 # ConceptKart ETL Pipeline 🛒📊
 
-![System Architecture](docs/assets/architecture_diagram.png)
+![Architecture Diagram](docs/assets/architecture_diagram_showcase.png)
 
 A production-grade, Agentic ETL (Extract, Transform, Load) pipeline designed to dynamically track, analyze, and alert on e-commerce pricing data. This project demonstrates high-availability architecture, strict SRE data governance, and autonomous self-healing capabilities.
 
@@ -21,9 +21,26 @@ The backend pipeline operates a **3-Tier Fallback Cascade** to guarantee 99%+ sc
 - **Tier 3 (LLM Self-Healing)**: AI-driven extraction (via Groq/OpenRouter/HuggingFace) that automatically bypasses layout redesigns and structural changes.
 
 ### 3. SRE & Observability Plane
+- **100% Core Test Coverage**: Fully verified Pydantic boundaries and database idempotency.
 - **Pydantic Validation & DLQ**: Strict data contracts ensure corrupt data never enters Supabase. Validation failures trigger a Store-and-Forward mechanism, saving payloads to a local Parquet Dead-Letter Queue for automatic retry.
-- **DuckDB Telemetry**: A local `.db` file powered by DuckDB captures deep analytics on pipeline performance, latency, and extraction success rates without blocking the main event loop.
-- **AST-Compressed Error Logs**: All exceptions are parsed by `jCodeMunch` and logged as structured JSON to maintain a highly compressed context window for autonomous debugging.
+- **DuckDB Telemetry**: A local `.db` file powered by DuckDB captures deep analytics on pipeline performance, latency, and extraction success rates.
+
+---
+
+## 🔄 Technical Flow
+
+```mermaid
+graph TD
+    A[Scheduler Trigger] --> B[Tier 1: curl-cffi]
+    B -->|Failed| C[Tier 2: Crawl4AI]
+    C -->|Failed| D[Tier 3: LLM Self-Healing]
+    B -->|Success| E[Pydantic Validation]
+    C -->|Success| E
+    D -->|Success| E
+    E -->|Valid| F[Supabase Upsert]
+    E -->|Invalid| G[Parquet DLQ]
+    F -->|Network Error| G
+```
 
 ---
 
