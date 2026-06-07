@@ -8,10 +8,9 @@ never crashes the pipeline (per 12-factor-rules.md Factor IX).
 
 import json
 import os
-import traceback
 import threading
-from datetime import datetime, timezone
-from typing import Optional
+import traceback
+from datetime import UTC, datetime
 
 # Base directory for log files
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
@@ -26,23 +25,23 @@ def _ensure_data_dir():
 def log_error(
     error: Exception,
     component: str,
-    domain: Optional[str] = None,
-    tier: Optional[str] = None,
-    context: Optional[dict] = None,
+    domain: str | None = None,
+    tier: str | None = None,
+    context: dict | None = None,
 ) -> None:
     """Log a structured error entry to data/error_logs.json.
-    
+
     Per error-observability.md Step 3:
     - timestamp: Current UTC time
     - error_type: Type of exception
     - component: The function or module that broke
     - stack_trace_summary: Compressed summary of the stack trace
     - status: "UNRESOLVED"
-    
+
     Writes are non-blocking (background thread) per Factor XI.
     """
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "error_type": type(error).__name__,
         "component": component,
         "domain": domain,
@@ -61,10 +60,10 @@ def log_error(
 def log_resolution(
     component: str,
     resolution_strategy: str,
-    error_type: Optional[str] = None,
+    error_type: str | None = None,
 ) -> None:
     """Mark the most recent matching error as RESOLVED.
-    
+
     Per error-observability.md Step 4:
     Updates the error log entry with the resolution strategy.
     """
@@ -76,9 +75,9 @@ def log_resolution(
     thread.start()
 
 
-def get_recent_errors(component: Optional[str] = None, limit: int = 10) -> list[dict]:
+def get_recent_errors(component: str | None = None, limit: int = 10) -> list[dict]:
     """Read recent error entries for pre-execution log verification.
-    
+
     Per error-observability.md Step 1:
     Before generating or modifying code, check recent error history.
     """
@@ -86,12 +85,12 @@ def get_recent_errors(component: Optional[str] = None, limit: int = 10) -> list[
         _ensure_data_dir()
         if not os.path.exists(ERROR_LOG_PATH):
             return []
-        with open(ERROR_LOG_PATH, "r", encoding="utf-8") as f:
+        with open(ERROR_LOG_PATH, encoding="utf-8") as f:
             entries = json.load(f)
         if component:
             entries = [e for e in entries if e.get("component") == component]
         return entries[-limit:]
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return []
 
 
@@ -101,7 +100,7 @@ def _append_entry(entry: dict) -> None:
         _ensure_data_dir()
         entries = []
         if os.path.exists(ERROR_LOG_PATH):
-            with open(ERROR_LOG_PATH, "r", encoding="utf-8") as f:
+            with open(ERROR_LOG_PATH, encoding="utf-8") as f:
                 try:
                     entries = json.load(f)
                 except json.JSONDecodeError:
@@ -124,14 +123,14 @@ def _append_entry(entry: dict) -> None:
 def _resolve_entry(
     component: str,
     resolution_strategy: str,
-    error_type: Optional[str],
+    error_type: str | None,
 ) -> None:
     """Find and resolve the most recent matching unresolved error."""
     try:
         _ensure_data_dir()
         if not os.path.exists(ERROR_LOG_PATH):
             return
-        with open(ERROR_LOG_PATH, "r", encoding="utf-8") as f:
+        with open(ERROR_LOG_PATH, encoding="utf-8") as f:
             entries = json.load(f)
 
         # Find the most recent matching unresolved entry
@@ -155,7 +154,7 @@ def _resolve_entry(
 
 def _compress_traceback(error: Exception) -> str:
     """Compress a stack trace into a concise summary.
-    
+
     Per error-observability.md Step 2: use compressed summaries
     instead of full stack traces to conserve context window.
     Extracts only the final frame and the exception message.

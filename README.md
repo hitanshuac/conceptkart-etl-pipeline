@@ -153,3 +153,6 @@ To test if this environment works as intended in your own projects, you do not n
 
 ---
 **Focus: Data Engineering, AI Self-Healing, and Scalable Agentic Architecture.** 🛡️✨
+
+---
+[View Agentic Environment Documentation](AGENT_DOCS.md)

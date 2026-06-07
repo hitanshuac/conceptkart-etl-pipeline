@@ -1,7 +1,7 @@
 import sqlite3
 
 # 1. Connect to the warehouse you built
-conn = sqlite3.connect('prices.db')
+conn = sqlite3.connect("prices.db")
 cursor = conn.cursor()
 
 # 2. Write a standard Analyst SQL query

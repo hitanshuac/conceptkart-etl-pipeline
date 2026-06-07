@@ -19,9 +19,10 @@ def upload():
         repo_id=repo_id,
         repo_type="space",
         token=token,
-        ignore_patterns=[".git/*", "data/*", "__pycache__/*", "*.parquet"]
+        ignore_patterns=[".git/*", "data/*", "__pycache__/*", "*.parquet"],
     )
     print("Upload complete!")
+
 
 if __name__ == "__main__":
     upload()

@@ -12,12 +12,11 @@ Supported formats (for future use):
 """
 
 import os
-from typing import Optional
 
 
 class ProxyManager:
     """Lightweight proxy abstraction.
-    
+
     Currently operates in passthrough mode (no proxy).
     When PROXY_URL is set, requests are routed through the proxy.
     """
@@ -29,7 +28,7 @@ class ProxyManager:
         else:
             print("[ProxyManager] No proxy configured. Running in direct mode.")
 
-    def get_proxy(self) -> Optional[dict]:
+    def get_proxy(self) -> dict | None:
         """Return proxy dict for requests/curl-cffi, or None for direct mode."""
         if not self._proxy_url:
             return None

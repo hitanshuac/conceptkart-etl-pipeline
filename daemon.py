@@ -17,7 +17,7 @@ import time
 
 def run_pipeline():
     """Execute the ETL pipeline as a subprocess.
-    
+
     Using subprocess ensures a crash in main.py doesn't kill the daemon.
     """
     print("\n" + "=" * 50)
@@ -42,7 +42,7 @@ def run_pipeline():
 
 def run_daemon():
     """Start the scheduling daemon.
-    
+
     Tries APScheduler first (production-grade). Falls back to
     a simple sleep loop if APScheduler is not installed.
     """

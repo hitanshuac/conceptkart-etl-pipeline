@@ -15,9 +15,10 @@ To ensure zero-cost, permanent offsite availability, applications are deployed t
 * **Pin All Dependencies:** Always use pinned or range-locked versions in `requirements.txt` to prevent Docker build failures caused by upstream breaking changes.
 * **Known Conflict:** If using `python-telegram-bot`, it strictly requires `httpx~=0.26.0`. Never upgrade `httpx` to `>=0.27.0` alongside it.
 
-## 3. Deployment Mechanism
-* **No Git Push:** Do **NOT** use `git push` directly to the Hugging Face remote to deploy. HF's pre-receive hooks strictly scan for binary blobs (e.g., SQLite/DuckDB databases, PyCaches). Because these files are generated at runtime locally, pushing `.git` history often triggers a rejection.
-* **Use the SDK:** Always deploy using the custom `upload_to_hf.py` script. This script leverages the `huggingface_hub` Python SDK to upload a clean snapshot of the working directory, explicitly ignoring `.git/`, `data/`, `__pycache__/`, and all binary extensions.
+## 3. Deployment Mechanism (CI/CD ONLY)
+* **No Git Push:** Do NOT use `git push` directly to the Hugging Face remote to avoid large file issues (LFS) and credential complexities.
+* **Use the SDK:** Always deploy using the custom `upload_to_hf.py` script via the Hugging Face Hub SDK.
+* **CRITICAL:** Do NOT run `upload_to_hf.py` locally. It must ONLY be executed by the `.github/workflows/deploy_hf.yml` GitHub Action runner which securely accesses the `HF_TOKEN`. All deployment triggers must happen via `git push origin main`.
 
 ## 4. UI Integration
 * **Single Endpoint:** The Space exposes a single web port. If the application requires multiple interfaces (e.g., a dashboard and a chat console), they must be served on `/` via a unified, tabbed interface to maximize utility without requiring multi-container setups (which HF free tier does not support).

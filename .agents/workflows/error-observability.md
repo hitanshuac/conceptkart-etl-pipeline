@@ -8,9 +8,10 @@ This workflow forces strict error logging, historical context checking, and reso
 
 ## Step 1: Pre-Execution Log Verification (Mandatory)
 Before generating or modifying any code, the agent MUST:
-1. Check for the existence of `data/error_logs.json` or `.parquet`. If it does not exist, initialize it.
-2. Read the recent error history to understand past failures and attempted fixes.
-3. **DO NOT** repeat strategies that have already been documented as "failed" in the logs.
+1. Check for the existence of `data/error_logs.json`. If it does not exist, initialize it.
+2. **Database Scaling:** If `data/error_logs.json` becomes too large or inefficient to query, the agent MUST autonomously initialize a local database (e.g., `data/error_metrics.db` via SQLite or DuckDB) to migrate and store all future error context.
+3. Read the recent error history (from JSON or DB) to understand past failures and attempted fixes.
+4. **DO NOT** repeat strategies that have already been documented as "failed" in the logs.
 
 ## Step 2: Context Window Compression (jCodeMunch)
 To avoid overloading the LLM context window with raw stack traces and massive log files:

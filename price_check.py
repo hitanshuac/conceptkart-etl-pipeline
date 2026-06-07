@@ -12,21 +12,20 @@ Per data-validation.md:
 """
 
 import os
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from pydantic import ValidationError
 
-from src.models import ScrapedProduct, QuarantineRecord
+from src.models import QuarantineRecord, ScrapedProduct
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
 
 def validate_price_payload(payload: dict, target_price: int = None) -> tuple[bool, bool]:
     """Validates the payload and checks if the target price is hit.
-    
+
     Returns: (is_valid, is_target_hit)
-    
+
     This function now enforces the full Pydantic ScrapedProduct schema
     when all required fields are present. For backwards compatibility
     with the existing pipeline, it also accepts minimal payloads
@@ -57,12 +56,12 @@ def validate_price_payload(payload: dict, target_price: int = None) -> tuple[boo
     return True, is_target_hit
 
 
-def validate_scraped_product(payload: dict) -> Optional[ScrapedProduct]:
+def validate_scraped_product(payload: dict) -> ScrapedProduct | None:
     """Full Pydantic validation of a scraped product payload.
-    
+
     Returns the validated ScrapedProduct model on success,
     or None if validation fails (with the record quarantined).
-    
+
     Per data-validation.md: the pipeline continues on failure.
     """
     try:
@@ -76,7 +75,7 @@ def validate_scraped_product(payload: dict) -> Optional[ScrapedProduct]:
 
 def _quarantine_record(payload: dict, error_type: str, error_message: str) -> None:
     """Route a malformed record to the Dead-Letter Queue.
-    
+
     Per data-validation.md §2: save bad records to data/quarantine_YYYYMMDD.parquet
     with the original payload and validation error for manual review.
     """
@@ -87,7 +86,7 @@ def _quarantine_record(payload: dict, error_type: str, error_message: str) -> No
         os.makedirs(DATA_DIR, exist_ok=True)
 
         record = QuarantineRecord(
-            timestamp_utc=datetime.now(timezone.utc),
+            timestamp_utc=datetime.now(UTC),
             source_url=payload.get("vendor_url", "unknown"),
             raw_payload=payload,
             error_type=error_type,
@@ -95,7 +94,7 @@ def _quarantine_record(payload: dict, error_type: str, error_message: str) -> No
             extraction_tier=payload.get("extraction_tier"),
         )
 
-        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        date_str = datetime.now(UTC).strftime("%Y%m%d")
         parquet_path = os.path.join(DATA_DIR, f"quarantine_{date_str}.parquet")
 
         # Convert to arrow table
@@ -122,17 +121,18 @@ def _quarantine_record(payload: dict, error_type: str, error_message: str) -> No
     except ImportError:
         # pyarrow not installed — fall back to JSON quarantine
         import json
+
         os.makedirs(DATA_DIR, exist_ok=True)
         fallback_path = os.path.join(DATA_DIR, "quarantine_fallback.json")
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "payload": str(payload),
             "error": error_message[:500],
         }
         try:
             entries = []
             if os.path.exists(fallback_path):
-                with open(fallback_path, "r") as f:
+                with open(fallback_path) as f:
                     entries = json.load(f)
             entries.append(entry)
             with open(fallback_path, "w") as f:

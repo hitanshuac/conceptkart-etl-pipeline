@@ -10,7 +10,6 @@ Registry lives in code (version-controlled) for reliability.
 
 from src.models import SiteConfig
 
-
 # Known site configurations with optimized CSS selectors.
 # When a product URL matches a domain key here, the extractor
 # uses these selectors for faster, more reliable extraction.
@@ -70,7 +69,7 @@ _runtime_cache: dict[str, SiteConfig] = {}
 
 def get_site_config(domain: str) -> SiteConfig:
     """Look up the extraction config for a domain.
-    
+
     Priority:
     1. SITE_REGISTRY (hardcoded, version-controlled)
     2. _runtime_cache (auto-generated from LLM, ephemeral)
@@ -91,7 +90,7 @@ def get_site_config(domain: str) -> SiteConfig:
 
 def cache_site_config(domain: str, config: SiteConfig) -> None:
     """Cache a runtime-discovered site config.
-    
+
     Called when Tier 3 LLM successfully extracts data from an
     unknown site. The config is cached for the duration of
     the process to speed up subsequent scrapes of the same domain.

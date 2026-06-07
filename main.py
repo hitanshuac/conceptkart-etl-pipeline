@@ -14,45 +14,41 @@ from urllib.parse import urlparse
 
 import db_setup
 import extractor
-import price_check
 import load_data
 import notifier
-
+import price_check
 from load_data import get_supabase_client
-from src.stealth.fingerprints import get_random_delay
+from src.observability.logger import get_recent_errors, log_error
 from src.sites.registry import get_site_config
-from src.observability.logger import log_error, get_recent_errors
+from src.stealth.fingerprints import get_random_delay
 
 
 def get_tracked_products():
     """Fetch active tracked products from Supabase."""
     try:
         supabase = get_supabase_client()
-        response = (
-            supabase.table("tracked_products")
-            .select("id, url, target_price")
-            .eq("is_active", True)
-            .execute()
-        )
+        response = supabase.table("tracked_products").select("id, url, target_price").eq("is_active", True).execute()
         return [(item["id"], item["url"], item["target_price"]) for item in response.data]
     except Exception as e:
         print(f"Error fetching from Supabase: {e}")
         log_error(e, component="main.get_tracked_products")
         return []
 
+
 def retry_failed_uploads():
     """Store-and-Forward: Retry failed Supabase inserts from the DLQ."""
-    import os
     import ast
+    import os
+
     try:
         import pyarrow.parquet as pq
     except ImportError:
         return
-        
+
     data_dir = os.path.join(os.path.dirname(__file__), "data")
     if not os.path.exists(data_dir):
         return
-        
+
     for filename in os.listdir(data_dir):
         if filename.startswith("quarantine_") and filename.endswith(".parquet"):
             filepath = os.path.join(data_dir, filename)
@@ -60,27 +56,26 @@ def retry_failed_uploads():
                 table = pq.read_table(filepath)
                 error_types = table.column("error_type").to_pylist()
                 payloads = table.column("raw_payload").to_pylist()
-                
+
                 retried = 0
-                for err, payload_str in zip(error_types, payloads):
-                    if err == 'SupabaseUploadFailed':
+                for err, payload_str in zip(error_types, payloads, strict=False):
+                    if err == "SupabaseUploadFailed":
                         try:
                             payload = ast.literal_eval(payload_str)
-                            product_id = payload.get('tracked_product_id')
+                            product_id = payload.get("tracked_product_id")
                             if product_id:
                                 # Supabase client is idempotent now (upsert)
                                 load_data.load_to_database(payload, product_id)
                                 retried += 1
                         except Exception as e:
                             print(f"  [DLQ] Retry failed: {e}")
-                
+
                 if retried > 0:
                     print(f"  [DLQ] Successfully replayed {retried} uploads from {filename}")
                     # In a fully-fledged system, we would remove the replayed rows here.
-                    
+
             except Exception as e:
                 print(f"  [DLQ] Error reading {filename}: {e}")
-
 
 
 def main():
@@ -130,9 +125,7 @@ def main():
                     raw_data = extractor.scrape_conceptkart(target_url)
 
                     # Validate
-                    is_valid, is_target_hit = price_check.validate_price_payload(
-                        raw_data, target_price
-                    )
+                    is_valid, is_target_hit = price_check.validate_price_payload(raw_data, target_price)
 
                     if is_valid:
                         print(f"  Validation passed. Rs.{raw_data['price_current']}. Loading...")

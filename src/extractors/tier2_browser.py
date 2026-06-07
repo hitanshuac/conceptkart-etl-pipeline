@@ -10,8 +10,7 @@ Cost: $0 (open source, self-hosted). Latency: ~2-5s.
 
 import asyncio
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 from src.extractors.base import BaseExtractor
@@ -20,7 +19,8 @@ from src.models import ScrapedProduct, SiteConfig
 # Crawl4AI is optional — Tier 2 gracefully degrades if not installed
 try:
     from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
-    from crawl4ai.extraction_strategy import LLMExtractionStrategy, JsonCssExtractionStrategy
+    from crawl4ai.extraction_strategy import JsonCssExtractionStrategy, LLMExtractionStrategy
+
     HAS_CRAWL4AI = True
 except ImportError:
     HAS_CRAWL4AI = False
@@ -28,7 +28,7 @@ except ImportError:
 
 class Tier2BrowserExtractor(BaseExtractor):
     """Browser-based extraction for JavaScript-heavy sites.
-    
+
     Uses Crawl4AI which internally manages Playwright with stealth patches.
     Extraction strategies:
     1. CSS-based extraction (fast, if selectors are known)
@@ -40,9 +40,9 @@ class Tier2BrowserExtractor(BaseExtractor):
     def extract(
         self,
         url: str,
-        site_config: Optional[SiteConfig] = None,
+        site_config: SiteConfig | None = None,
         **kwargs,
-    ) -> Optional[ScrapedProduct]:
+    ) -> ScrapedProduct | None:
         if not HAS_CRAWL4AI:
             print("  [Tier2] crawl4ai not installed. Skipping browser tier.")
             return None
@@ -59,10 +59,9 @@ class Tier2BrowserExtractor(BaseExtractor):
             if loop.is_running():
                 # If already in an async context, create a new loop
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor() as pool:
-                    result = pool.submit(
-                        asyncio.run, self._async_extract(url, domain, site_config)
-                    ).result(timeout=30)
+                    result = pool.submit(asyncio.run, self._async_extract(url, domain, site_config)).result(timeout=30)
                 return result
             else:
                 return asyncio.run(self._async_extract(url, domain, site_config))
@@ -75,8 +74,8 @@ class Tier2BrowserExtractor(BaseExtractor):
         self,
         url: str,
         domain: str,
-        site_config: Optional[SiteConfig],
-    ) -> Optional[ScrapedProduct]:
+        site_config: SiteConfig | None,
+    ) -> ScrapedProduct | None:
         """Core async extraction using Crawl4AI."""
         start_ms = time.monotonic_ns()
 
@@ -111,7 +110,7 @@ class Tier2BrowserExtractor(BaseExtractor):
                     vendor_name=domain,
                     vendor_url=url,
                     price_current=price_current,
-                    scraped_at_utc=datetime.now(timezone.utc),
+                    scraped_at_utc=datetime.now(UTC),
                     extraction_tier=self.tier_name,
                     extraction_latency_ms=latency_ms,
                 )
@@ -121,18 +120,19 @@ class Tier2BrowserExtractor(BaseExtractor):
             self.circuit_breaker.record_failure(domain)
             return None
 
-    def _parse_crawl_result(self, result, site_config: Optional[SiteConfig]) -> tuple:
+    def _parse_crawl_result(self, result, site_config: SiteConfig | None) -> tuple:
         """Parse the Crawl4AI result to extract product name and price.
-        
+
         Uses the HTML from the rendered page and applies the same
         parsing strategies as Tier 1 (OG meta, JSON-LD, CSS selectors)
         but on the fully-rendered DOM.
         """
         import json
         import re
+
         from bs4 import BeautifulSoup
 
-        html = result.html if hasattr(result, 'html') else ""
+        html = result.html if hasattr(result, "html") else ""
         if not html:
             return None, 0
 
@@ -187,8 +187,7 @@ class Tier2BrowserExtractor(BaseExtractor):
         # Strategy 4: Generic CSS patterns
         if price_current == 0:
             price_patterns = re.compile(
-                r"price-item--regular|price__regular|product-price|"
-                r"current-price|sale-price|offer-price"
+                r"price-item--regular|price__regular|product-price|" r"current-price|sale-price|offer-price"
             )
             elem = soup.find(class_=price_patterns)
             if elem:

@@ -17,8 +17,7 @@ Cost: $0 on free tiers. Latency: ~3-8s.
 import json
 import os
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 from src.extractors.base import BaseExtractor
@@ -26,6 +25,7 @@ from src.models import ScrapedProduct, SiteConfig
 
 try:
     from openai import OpenAI
+
     HAS_OPENAI = True
 except ImportError:
     HAS_OPENAI = False
@@ -62,12 +62,12 @@ SYSTEM_PROMPT = (
 
 class Tier3LlmExtractor(BaseExtractor):
     """AI self-healing extraction using free LLM providers.
-    
+
     This tier is the safety net for when sites redesign their layouts,
     use unusual markup, or employ anti-scraping measures that break
     traditional parsing. The LLM reads the raw page text and extracts
     structured data.
-    
+
     Provider auto-detection priority:
     1. GROQ_API_KEY (fastest free inference)
     2. OPENROUTER_API_KEY (widest model selection)
@@ -79,10 +79,10 @@ class Tier3LlmExtractor(BaseExtractor):
     def extract(
         self,
         url: str,
-        site_config: Optional[SiteConfig] = None,
-        page_text: Optional[str] = None,
+        site_config: SiteConfig | None = None,
+        page_text: str | None = None,
         **kwargs,
-    ) -> Optional[ScrapedProduct]:
+    ) -> ScrapedProduct | None:
         domain = urlparse(url).netloc.replace("www.", "")
 
         if not self.can_attempt(domain):
@@ -166,7 +166,7 @@ class Tier3LlmExtractor(BaseExtractor):
                 vendor_name=domain,
                 vendor_url=url,
                 price_current=price_current,
-                scraped_at_utc=datetime.now(timezone.utc),
+                scraped_at_utc=datetime.now(UTC),
                 extraction_tier=self.tier_name,
                 extraction_latency_ms=latency_ms,
             )
@@ -176,9 +176,9 @@ class Tier3LlmExtractor(BaseExtractor):
             self.circuit_breaker.record_failure(domain)
             return None
 
-    def _resolve_provider(self) -> tuple[Optional[str], Optional[dict]]:
+    def _resolve_provider(self) -> tuple[str | None, dict | None]:
         """Auto-detect the LLM provider from available API keys.
-        
+
         Priority: Groq (fastest) → OpenRouter → HuggingFace
         """
         # Check each provider in priority order
@@ -211,22 +211,24 @@ class Tier3LlmExtractor(BaseExtractor):
         return None, None
 
     @staticmethod
-    def _fetch_page_text(url: str) -> Optional[str]:
+    def _fetch_page_text(url: str) -> str | None:
         """Fetch raw page text for LLM consumption."""
         try:
             from curl_cffi import requests as cffi_requests
+
             from src.stealth.fingerprints import get_stealth_headers
-            response = cffi_requests.get(
-                url, headers=get_stealth_headers(), timeout=15, impersonate="chrome"
-            )
+
+            response = cffi_requests.get(url, headers=get_stealth_headers(), timeout=15, impersonate="chrome")
         except ImportError:
             import requests
+
             response = requests.get(url, timeout=15)
 
         if response.status_code != 200:
             return None
 
         from bs4 import BeautifulSoup
+
         soup = BeautifulSoup(response.text, "html.parser")
         body = soup.body
         if body:

@@ -1,41 +1,52 @@
 ---
-description: Master workflow to synthesize documentation, update schemas, publish to GitHub, and deploy to Hugging Face Spaces.
+description: Universal Master workflow to deploy ANY codebase as a Docker container to Hugging Face Spaces.
 ---
 
-# HF Production Deployment Workflow
+# Universal HF Production Deployment Workflow
 
-This workflow orchestrates the entire deployment pipeline. Every time the code is deployed to Hugging Face, these steps MUST be executed in order:
+This workflow orchestrates the deployment pipeline. It is entirely language-agnostic and relies on Hugging Face Docker Spaces to deploy arbitrary environments (Node.js, Go, Rust, Python, etc.) via native Git commands.
 
-## Step 1: Pre-flight Verification & Rule Auditing
-1. Read `.agents/rules/hf-deployment-standards.md` to ensure all execution requirements (webhook, port binding, memory limits) are met.
-2. If using `python-telegram-bot`, verify that `httpx` is strictly configured within `~=0.26.0` range in your `requirements.txt`.
+## Step 1: Pre-Flight Credential Provisioning
+1. Execute the `.agents/workflows/setup-secrets.md` workflow.
+2. Ensure `HF_TOKEN` and `HF_SPACE_REPO` are securely pushed to GitHub Actions via the `gh` CLI.
 
-## Step 2: Codebase-to-Document Synchronization
-1. Analyze the updated codebase (`src/capabilities/`, etc.).
-2. Synchronize API schemas, route definitions, and cascade rules across:
-   - `docs/`
-   - `.agents/rules/`
-3. Update version designations in all files to the current release (e.g., `v1.0.0`).
+## Step 2: Stack Detection & Dockerization
+To deploy a generic repository to Hugging Face Spaces, it MUST use a Docker Space.
+1. **Detect Language Stack:** Identify the repository's core framework.
+2. **Generate Dockerfile:** If a `Dockerfile` does not exist at the repository root, create one.
+   - **CRITICAL HF DOOCKER RULES:**
+     - The container MUST expose port `7860`.
+     - The container MUST run as a non-root user (e.g., `RUN useradd -m -u 1000 user`).
+     - The application MUST bind to `0.0.0.0:7860`.
 
-## Step 3: Showcase & Flow Asset Updates
-1. Ensure the system architecture showcase image (`docs/assets/architecture_diagram.png`) represents the current cascade engine (10-Tier Cascade, SPA web client, webhook bot). If the version has changed, generate a new image and place it in the assets directory.
-2. Verify that the Mermaid technical flow diagram in `README.md` is aligned with the codebase's cascading fallback logic.
-
-## Step 4: Publish Showcase on GitHub (Call Sub-Workflow)
-1. Run the `publish-showcase.md` workflow.
-2. This will synthesize `retrospective.md`, `walkthrough.md`, and `implementation_plan.md` into `README.md`.
-3. In `README.md`, ensure **both** the recruiter-facing static PNG and the technical Mermaid flow are visible:
-   - Recruiter Showcase: `![Architecture Diagram](docs/assets/architecture_diagram.png)` at the top of the file.
-   - Technical Flowchart: Mermaid diagram in the interaction section.
-4. Stage, commit, and push all modifications to GitHub first.
-
-## Step 5: Push to Hugging Face Spaces (Agent Automation)
-1. **Agent Instruction:** Do NOT ask the human to run terminal commands. You are the executing agent.
-2. If `HF_SPACE_REPO` or `HF_TOKEN` are not known, ask the human user to provide them in the chat.
-3. Once you have the credentials, use your terminal execution tools to temporarily set the environment variables and run the upload script autonomously:
-   ```bash
-   $env:HF_SPACE_REPO="<provided-repo>"
-   $env:HF_TOKEN="<provided-token>"
-   python upload_to_hf.py
+## Step 3: HF Frontmatter Injection
+Hugging Face requires a specific YAML block at the very top of `README.md` to configure the Space.
+1. Scan the top of `README.md`.
+2. Ensure the following frontmatter exists and is accurate:
+   ```yaml
+   ---
+   title: <Project Name>
+   emoji: 🚀
+   colorFrom: blue
+   colorTo: indigo
+   sdk: docker
+   app_port: 7860
+   pinned: false
+   ---
    ```
-4. Verify that the build starts successfully in the Hugging Face Space.
+
+## Step 4: Codebase-to-Document Synchronization
+1. Synchronize API schemas, route definitions, and architecture diagrams across `docs/` and `.agents/rules/`.
+2. Update version designations to the current release (e.g., `v1.0.0`).
+3. Ensure the recruiter-facing static PNG and technical Mermaid flow are visible in `README.md`.
+
+## Step 5: Git-Native Deployment to Hugging Face
+**DO NOT** use custom Python scripts (like legacy `upload_to_hf.py`) to deploy. Hugging Face Spaces are standard Git repositories.
+1. Ensure `.github/workflows/deploy_hf.yml` is configured to push the codebase directly to Hugging Face using the secrets.
+   Example Action snippet:
+   ```yaml
+   - name: Push to HF Spaces
+     run: git push https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/${{ secrets.HF_SPACE_REPO }} main
+   ```
+2. Commit and push all local changes to GitHub (`origin/main`).
+3. The GitHub Action will trigger and seamlessly clone the repo into the Hugging Face Space.

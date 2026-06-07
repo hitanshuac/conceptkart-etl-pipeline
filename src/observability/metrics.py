@@ -12,7 +12,6 @@ Non-blocking writes ensure telemetry never crashes the pipeline.
 
 import os
 import threading
-from typing import Optional
 
 from src.models import PipelineMetric
 
@@ -22,6 +21,7 @@ METRICS_DB_PATH = os.path.join(DATA_DIR, "pipeline_metrics.db")
 # DuckDB is optional — metrics degrade gracefully if not installed
 try:
     import duckdb
+
     HAS_DUCKDB = True
 except ImportError:
     HAS_DUCKDB = False
@@ -33,7 +33,7 @@ _initialized = False
 
 def _ensure_schema() -> None:
     """Create the metrics table if it doesn't exist.
-    
+
     Follows DuckDB Optimizer skill:
     - WAL mode for crash resilience
     - Memory limit capped at 256MB
@@ -76,7 +76,7 @@ def _ensure_schema() -> None:
 
 def record_metric(metric: PipelineMetric) -> None:
     """Write a telemetry record to DuckDB.
-    
+
     Non-blocking: runs in a background thread so the main
     pipeline is never blocked by a slow disk write.
     Per 12-factor-rules.md Factor XI: treat logs as event streams.
@@ -121,9 +121,9 @@ def _write_metric(metric: PipelineMetric) -> None:
         print(f"[METRICS] Failed to write metric: {e}")
 
 
-def get_domain_stats(domain: str, days: int = 7) -> Optional[dict]:
+def get_domain_stats(domain: str, days: int = 7) -> dict | None:
     """Query aggregated stats for a domain over the last N days.
-    
+
     Returns success rate, average latency, and tier distribution.
     Useful for SRE dashboards and circuit breaker tuning.
     """

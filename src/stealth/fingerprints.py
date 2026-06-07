@@ -10,7 +10,6 @@ Cost: $0. No external dependencies.
 
 import random
 
-
 # Curated pool of real User-Agent strings from popular browsers.
 # These are actual UA strings captured from Chrome, Firefox, and Edge
 # across Windows, Mac, and Linux in 2024-2026.
@@ -62,7 +61,7 @@ ACCEPT_ENCODINGS = [
 
 def get_stealth_headers() -> dict:
     """Generate a randomized but realistic set of HTTP headers.
-    
+
     Each call returns a different combination of User-Agent, Accept-Language,
     and other headers to reduce fingerprint consistency across requests.
     """
@@ -91,7 +90,7 @@ def get_stealth_headers() -> dict:
 
 def get_random_delay(base_seconds: int = 5) -> float:
     """Generate a randomized delay with jitter to mimic human browsing.
-    
+
     Adds ±40% jitter to the base delay to avoid detection via
     consistent request timing patterns.
     """

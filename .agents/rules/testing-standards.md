@@ -32,3 +32,7 @@ This rule governs all testing practices across the Agentic Environment. It enfor
 - If a test fails, the agent must first check `.agents/workflows/error-observability.md` for historical context.
 - The agent must fix the **implementation code**, not weaken the test, unless the test itself contains a genuine error.
 - After 3 failed debugging iterations on the same test, the agent must flag it for manual user review and move on.
+
+## 7. Anti-Solipsism Verification (Human Testing)
+- **Rule:** Never rely solely on internal, solipsistic verification (reading your own terminal outputs).
+- Always explicitly provide the human user with the exact, step-by-step UI and CLI testing commands required to run and test the full-stack system locally (e.g., how to start the backend, how to start the frontend, what URL to open) upon completion of any task.

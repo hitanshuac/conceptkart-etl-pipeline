@@ -5,10 +5,6 @@ description: description: Automatically commit and push the current workspace st
 # Secure Checkpoint Workflow
 
 1. Ask the user for a brief commit message describing the current state.
-2. Stage all current files, including hidden and newly recovered files. // turbo
-3. Run `git add .`
-4. Commit the changes safely to the Git ledger. // turbo
-5. Run `git commit -m "[Safe Checkpoint] "` appended with the user's message.
-6. Push the changes to the remote GitHub repository. // turbo
-7. Run `git push origin main`
-8. Confirm to the user that their files are permanently secured on GitHub.
+2. Execute the Git Manager to securely stage, commit, and push the codebase, automatically handling errors and branch divergence. // turbo
+3. Run `python src/capabilities/git_manager.py checkpoint "[User Message]"`
+4. Confirm to the user that their files are permanently secured on GitHub.

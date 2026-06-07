@@ -4,18 +4,19 @@ Multi-channel notification system.
 Sends alerts when target prices are hit. Supports:
   - Telegram Bot (existing)
   - Generic webhook (Slack, Discord, or custom endpoints)
-  
+
 All notification channels are optional and configured via environment
 variables (12-Factor compliant). Failure to notify never crashes the pipeline.
 """
 
 import os
+
 import requests
 
 
 def notify_price_drop(product_name: str, price: int, url: str):
     """Dispatch price drop notifications across all configured channels.
-    
+
     Expects environment variables:
     - TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID: Telegram notifications
     - WEBHOOK_URL: Generic webhook (Slack, Discord, etc.)
@@ -58,7 +59,7 @@ def _notify_telegram(product_name: str, price: int, url: str, title: str):
 
 def _notify_webhook(product_name: str, price: int, url: str, title: str):
     """Send a notification to a generic webhook endpoint.
-    
+
     The payload format is compatible with Slack, Discord, and
     most webhook-based notification services.
     """

@@ -21,9 +21,21 @@ Create a `.gitignore` that explicitly ignores `data/`, `.secrets/`, `.env`, and 
 
 ## Phase 2: Global SRE Rules
 Create the following files in `.agents/rules/` using pure Markdown (no XML tags):
-1. `01-12-factor-enforcement.md`: Enforce that API keys are never hardcoded in `src/` and must be read from the environment or `.secrets/`.
+1. `01-12-factor-enforcement.md`: Enforce all 12 factors of the 12-Factor App methodology. API keys must never be hardcoded.
 2. `02-idempotency-standards.md`: Enforce that all database operations (specifically DuckDB) must use `INSERT OR REPLACE` logic to prevent duplicate records on retry.
 3. `03-quarantine-dlq.md`: Enforce that any Pydantic validation failures must be routed to `data/quarantine_log.parquet` without crashing the main event loop.
+4. `testing-standards.md`: Enforce the Test Pyramid (Unit → Integration → E2E), naming conventions, and the "never ship untested code" mandate.
+
+## Phase 2.5: Product Design Gate
+Before writing any application code, the 5 Product & Systems Design templates must be populated:
+1. Check if `.agents/product/templates/` exists. If not, scaffold it.
+2. Execute `.agents/workflows/generate-product-docs.md` to interview the user and populate:
+   - `01_PRD.md` (Product Requirements)
+   - `02_TAD.md` (Technical Architecture)
+   - `03_SECURITY.md` (Security & Access)
+   - `04_FRONTEND.md` (Frontend Specification)
+   - `05_TICKETS.md` (Feature Ticket List)
+3. Wait for explicit user approval of all 5 documents before proceeding to Phase 3.
 
 ## Phase 3: Workflow Generation
 Create the following files in `.agents/workflows/`:

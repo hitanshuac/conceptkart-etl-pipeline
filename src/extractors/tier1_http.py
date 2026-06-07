@@ -12,8 +12,7 @@ Cost: $0. Latency: ~200-500ms.
 import json
 import re
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
@@ -26,15 +25,17 @@ from src.stealth.fingerprints import get_stealth_headers
 # Falls back to requests if curl-cffi is not installed.
 try:
     from curl_cffi import requests as cffi_requests
+
     HAS_CURL_CFFI = True
 except ImportError:
     import requests as cffi_requests
+
     HAS_CURL_CFFI = False
 
 
 class Tier1HttpExtractor(BaseExtractor):
     """Fast HTTP extraction with TLS impersonation.
-    
+
     Extraction priority:
     1. Open Graph meta tags (og:price:amount, og:title)
     2. JSON-LD structured data (@type: Product)
@@ -47,9 +48,9 @@ class Tier1HttpExtractor(BaseExtractor):
     def extract(
         self,
         url: str,
-        site_config: Optional[SiteConfig] = None,
+        site_config: SiteConfig | None = None,
         **kwargs,
-    ) -> Optional[ScrapedProduct]:
+    ) -> ScrapedProduct | None:
         domain = urlparse(url).netloc.replace("www.", "")
 
         if not self.can_attempt(domain):
@@ -65,9 +66,7 @@ class Tier1HttpExtractor(BaseExtractor):
 
             # curl-cffi impersonates Chrome's TLS fingerprint
             if HAS_CURL_CFFI:
-                response = cffi_requests.get(
-                    url, headers=headers, timeout=15, impersonate="chrome"
-                )
+                response = cffi_requests.get(url, headers=headers, timeout=15, impersonate="chrome")
             else:
                 response = cffi_requests.get(url, headers=headers, timeout=15)
 
@@ -91,15 +90,11 @@ class Tier1HttpExtractor(BaseExtractor):
 
             # Strategy 2: JSON-LD structured data
             if price_current == 0:
-                product_name, price_current = self._extract_jsonld(
-                    soup, product_name
-                )
+                product_name, price_current = self._extract_jsonld(soup, product_name)
 
             # Strategy 3: Site-specific CSS selectors
             if price_current == 0 and site_config and site_config.selectors:
-                product_name, price_current = self._extract_selectors(
-                    soup, site_config.selectors, product_name
-                )
+                product_name, price_current = self._extract_selectors(soup, site_config.selectors, product_name)
 
             # Strategy 4: Generic CSS fallback
             if price_current == 0:
@@ -118,7 +113,7 @@ class Tier1HttpExtractor(BaseExtractor):
                 vendor_name=domain,
                 vendor_url=url,
                 price_current=price_current,
-                scraped_at_utc=datetime.now(timezone.utc),
+                scraped_at_utc=datetime.now(UTC),
                 extraction_tier=self.tier_name,
                 extraction_latency_ms=latency_ms,
             )
@@ -128,7 +123,7 @@ class Tier1HttpExtractor(BaseExtractor):
             self.circuit_breaker.record_failure(domain)
             return None
 
-    def _extract_opengraph(self, soup: BeautifulSoup) -> tuple[Optional[str], int]:
+    def _extract_opengraph(self, soup: BeautifulSoup) -> tuple[str | None, int]:
         """Extract from Open Graph meta tags (common in Shopify, WooCommerce)."""
         title_meta = soup.find("meta", property="og:title")
         price_meta = soup.find("meta", property="og:price:amount")
@@ -142,9 +137,7 @@ class Tier1HttpExtractor(BaseExtractor):
                 pass
         return name, price
 
-    def _extract_jsonld(
-        self, soup: BeautifulSoup, fallback_name: Optional[str]
-    ) -> tuple[Optional[str], int]:
+    def _extract_jsonld(self, soup: BeautifulSoup, fallback_name: str | None) -> tuple[str | None, int]:
         """Extract from JSON-LD structured data (@type: Product)."""
         for script in soup.find_all("script", type="application/ld+json"):
             try:
@@ -170,8 +163,8 @@ class Tier1HttpExtractor(BaseExtractor):
         self,
         soup: BeautifulSoup,
         selectors: dict,
-        fallback_name: Optional[str],
-    ) -> tuple[Optional[str], int]:
+        fallback_name: str | None,
+    ) -> tuple[str | None, int]:
         """Extract using site-specific CSS selectors from SiteConfig."""
         price = 0
         name = fallback_name
@@ -196,8 +189,7 @@ class Tier1HttpExtractor(BaseExtractor):
     def _extract_generic_css(self, soup: BeautifulSoup) -> int:
         """Last resort: look for common price CSS class patterns."""
         price_patterns = re.compile(
-            r"price-item--regular|price__regular|product-price|"
-            r"current-price|sale-price|offer-price"
+            r"price-item--regular|price__regular|product-price|" r"current-price|sale-price|offer-price"
         )
         elem = soup.find(class_=price_patterns)
         if elem:

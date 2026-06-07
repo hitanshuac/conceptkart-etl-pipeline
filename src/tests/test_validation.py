@@ -1,5 +1,7 @@
 import pytest
+
 from price_check import validate_price_payload
+
 
 def test_validation_valid_payload():
     """
@@ -10,6 +12,7 @@ def test_validation_valid_payload():
     assert is_valid is True
     assert is_target_hit is True
 
+
 def test_validation_invalid_price():
     """
     Test that a negative or zero price raises a ValueError.
@@ -17,6 +20,7 @@ def test_validation_invalid_price():
     payload = {"price_current": 0}
     with pytest.raises(ValueError, match="ANOMALY: Price Rs.0 is too low"):
         validate_price_payload(payload, target_price=17000)
+
 
 def test_validation_missing_key():
     """

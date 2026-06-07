@@ -13,18 +13,16 @@ with a site-agnostic, cascading extraction engine.
 """
 
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
-from src.models import ScrapedProduct, SiteConfig, PipelineMetric
 from src.extractors.tier1_http import Tier1HttpExtractor
 from src.extractors.tier2_browser import Tier2BrowserExtractor
 from src.extractors.tier3_llm import Tier3LlmExtractor
-from src.sites.registry import get_site_config, cache_site_config
+from src.models import PipelineMetric, ScrapedProduct, SiteConfig
 from src.observability.logger import log_error
 from src.observability.metrics import record_metric
-
+from src.sites.registry import cache_site_config, get_site_config
 
 # Singleton extractor instances (circuit breaker state persists across calls)
 _tier1 = Tier1HttpExtractor()
@@ -32,13 +30,13 @@ _tier2 = Tier2BrowserExtractor()
 _tier3 = Tier3LlmExtractor()
 
 
-def extract_product(url: str, tracked_product_id: Optional[int] = None) -> Optional[ScrapedProduct]:
+def extract_product(url: str, tracked_product_id: int | None = None) -> ScrapedProduct | None:
     """Run the 3-tier extraction cascade for a product URL.
-    
+
     Args:
         url: The product page URL to scrape.
         tracked_product_id: Optional ID for telemetry correlation.
-        
+
     Returns:
         ScrapedProduct on success, None on total failure.
     """
@@ -52,8 +50,8 @@ def extract_product(url: str, tracked_product_id: Optional[int] = None) -> Optio
     # Determine which tiers to attempt
     tiers = _build_tier_sequence(site_config)
 
-    result: Optional[ScrapedProduct] = None
-    last_error: Optional[str] = None
+    result: ScrapedProduct | None = None
+    last_error: str | None = None
 
     for tier_name, extractor in tiers:
         try:
@@ -68,8 +66,7 @@ def extract_product(url: str, tracked_product_id: Optional[int] = None) -> Optio
                     cache_site_config(domain, SiteConfig(requires_llm=True))
 
                 # Record success metric
-                _record(domain, tracked_product_id, tier_name,
-                        int((time.monotonic_ns() - start_ms) / 1_000_000), True)
+                _record(domain, tracked_product_id, tier_name, int((time.monotonic_ns() - start_ms) / 1_000_000), True)
                 return result
             else:
                 print(f"  [FAIL] {tier_name} returned None.")
@@ -89,7 +86,7 @@ def extract_product(url: str, tracked_product_id: Optional[int] = None) -> Optio
 
 def _build_tier_sequence(site_config: SiteConfig) -> list[tuple[str, object]]:
     """Build the tier execution sequence based on site config.
-    
+
     Some sites are known to require JS (skip Tier 1) or LLM (skip Tier 1+2).
     """
     tiers = []
@@ -108,28 +105,31 @@ def _build_tier_sequence(site_config: SiteConfig) -> list[tuple[str, object]]:
 def _get_known_domains() -> set[str]:
     """Get the set of domains with hardcoded configs."""
     from src.sites.registry import SITE_REGISTRY
+
     return set(SITE_REGISTRY.keys())
 
 
 def _record(
     domain: str,
-    product_id: Optional[int],
+    product_id: int | None,
     tier: str,
     latency_ms: int,
     success: bool,
-    error_type: Optional[str] = None,
+    error_type: str | None = None,
 ) -> None:
     """Record a pipeline metric to the DuckDB telemetry plane."""
     try:
-        record_metric(PipelineMetric(
-            timestamp_utc=datetime.now(timezone.utc),
-            domain=domain,
-            tracked_product_id=product_id,
-            tier_used=tier,
-            latency_ms=latency_ms,
-            success=success,
-            error_type=error_type,
-        ))
+        record_metric(
+            PipelineMetric(
+                timestamp_utc=datetime.now(UTC),
+                domain=domain,
+                tracked_product_id=product_id,
+                tier_used=tier,
+                latency_ms=latency_ms,
+                success=success,
+                error_type=error_type,
+            )
+        )
     except Exception:
         pass  # Telemetry must never crash the pipeline
 
@@ -138,9 +138,10 @@ def _record(
 # The original codebase calls `scrape_conceptkart(url)` from main.py.
 # This shim preserves that interface while routing through the new cascade.
 
+
 def scrape_conceptkart(url: str = None) -> dict:
     """Legacy interface — routes through the new extraction cascade.
-    
+
     Returns a plain dict (not Pydantic) for backwards compatibility
     with the existing load_data.py and price_check.py modules.
     """

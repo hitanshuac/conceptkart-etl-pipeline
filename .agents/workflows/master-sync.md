@@ -37,7 +37,12 @@ This is the **top-level orchestrator** for synchronizing the entire codebase. It
 2. Ensure the commit message follows Conventional Commits (`feat:`, `fix:`, `docs:`, etc.).
 3. The CI/CD pipeline in `.github/workflows/release.yml` will handle the version bump and changelog generation.
 
-## Phase 7: Secure Checkpoint
+## Phase 7: Conversational Error Harvesting
+1. The agent MUST review the conversation log (from the last stable checkpoint up to the present moment).
+2. Extract any errors, failed implementation attempts, hallucinations, or dead-ends encountered during this session.
+3. Execute `.agents/workflows/error-observability.md` to persist these lessons to the central observability suite so they are never repeated.
+
+## Phase 8: Secure Checkpoint
 1. Execute `.agents/workflows/secure-checkpoint.md`.
-2. Stage all files (`git add .`), commit with the Conventional Commit message, and push to `origin main`.
+2. This invokes the Python Git Manager (`src/capabilities/git_manager.py`) to safely stage, commit, and push changes while enforcing error observability.
 3. Confirm to the user that all changes are permanently secured on GitHub.
