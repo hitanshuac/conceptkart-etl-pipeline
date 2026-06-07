@@ -114,4 +114,15 @@ python daemon.py
 ```
 
 ---
+
+## 🧬 How to Adopt This Environment (Injection Method)
+To test if this environment works as intended in your own projects, you do not need to rewrite your entire codebase. Instead, you inject the "Agentic Brain":
+
+1. **Pull the Brain:** Copy the `.agents/` directory and the `HANDOVER.md` file from this repository into the root of your existing project.
+2. **Summon the Agent:** Open your AI coding assistant (e.g., Cursor, Windsurf, or an Antigravity agent) in your project.
+3. **Trigger the Handover:** Send your AI the following prompt:
+   > *"Please read `@HANDOVER.md`. You must acknowledge the architecture constraints and the strict Rule 00 (No Unauthorized Deletions). Your absolute first action must be to execute `.agents/workflows/merge-conflict-resolution.md` to safely resolve any file collisions. Once I have manually approved the merge, proceed to `BOOTSTRAP.MD`."*
+4. **Watch it Work:** The AI will automatically parse the strict governance rules, apply the context compactor, and begin aligning your legacy code to the production standards defined in `.agents/rules/`.
+
+---
 **Focus: Data Engineering, AI Self-Healing, and Scalable Agentic Architecture.** 🛡️✨
