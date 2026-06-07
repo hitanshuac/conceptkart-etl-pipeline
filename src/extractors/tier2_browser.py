@@ -99,7 +99,7 @@ class Tier2BrowserExtractor(BaseExtractor):
                 product_name, price_current = self._parse_crawl_result(result, site_config)
 
                 if price_current == 0 or not product_name:
-                    print(f"  [Tier2] Could not extract price/name from rendered page.")
+                    print("  [Tier2] Could not extract price/name from rendered page.")
                     self.circuit_breaker.record_failure(domain)
                     return None
 

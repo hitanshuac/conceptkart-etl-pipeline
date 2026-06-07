@@ -29,6 +29,13 @@ This workflow orchestrates the entire deployment pipeline. Every time the code i
    - Technical Flowchart: Mermaid diagram in the interaction section.
 4. Stage, commit, and push all modifications to GitHub first.
 
-## Step 5: Push to Hugging Face Spaces
-1. Run `python upload_to_hf.py` to push the clean payload to the Hugging Face remote.
-2. Verify that the build starts successfully in the Hugging Face Space.
+## Step 5: Push to Hugging Face Spaces (Agent Automation)
+1. **Agent Instruction:** Do NOT ask the human to run terminal commands. You are the executing agent.
+2. If `HF_SPACE_REPO` or `HF_TOKEN` are not known, ask the human user to provide them in the chat.
+3. Once you have the credentials, use your terminal execution tools to temporarily set the environment variables and run the upload script autonomously:
+   ```bash
+   $env:HF_SPACE_REPO="<provided-repo>"
+   $env:HF_TOKEN="<provided-token>"
+   python upload_to_hf.py
+   ```
+4. Verify that the build starts successfully in the Hugging Face Space.

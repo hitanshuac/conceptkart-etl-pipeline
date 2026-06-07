@@ -37,7 +37,7 @@ SITE_REGISTRY: dict[str, SiteConfig] = {
             "price": "#priceblock_ourprice, #priceblock_dealprice, .a-price .a-offscreen",
             "name": "#productTitle",
         },
-        requires_js=True,
+        requires_js=False,
         rate_limit_seconds=15,
     ),
     "flipkart.com": SiteConfig(
@@ -54,7 +54,7 @@ SITE_REGISTRY: dict[str, SiteConfig] = {
             "price": "#priceblock_ourprice, #priceblock_dealprice, .a-price .a-offscreen",
             "name": "#productTitle",
         },
-        requires_js=True,
+        requires_js=False,
         rate_limit_seconds=15,
     ),
     # --- Generic Shopify sites ---

@@ -168,7 +168,7 @@ def main():
                     time.sleep(delay)
 
         # Step 6: Pipeline summary
-        print(f"\n--- PIPELINE COMPLETED ---")
+        print("\n--- PIPELINE COMPLETED ---")
         print(f"  [SUCCESS] Succeeded: {success_count}")
         print(f"  [FAIL] Failed: {fail_count}")
         print(f"  Total: {success_count + fail_count}")

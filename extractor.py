@@ -22,7 +22,6 @@ from src.extractors.tier1_http import Tier1HttpExtractor
 from src.extractors.tier2_browser import Tier2BrowserExtractor
 from src.extractors.tier3_llm import Tier3LlmExtractor
 from src.sites.registry import get_site_config, cache_site_config
-from src.stealth.fingerprints import get_random_delay
 from src.observability.logger import log_error
 from src.observability.metrics import record_metric
 

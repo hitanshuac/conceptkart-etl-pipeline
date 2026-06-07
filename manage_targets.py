@@ -1,5 +1,4 @@
 import argparse
-import sys
 from load_data import get_supabase_client
 
 def list_targets():

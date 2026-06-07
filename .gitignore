@@ -18,3 +18,8 @@ venv/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Antigravity Data & Secrets
+data/
+.secrets/
+*.parquet

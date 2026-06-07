@@ -1,5 +1,3 @@
-import os
-import pytest
 from unittest.mock import patch, MagicMock
 from load_data import load_to_database
 

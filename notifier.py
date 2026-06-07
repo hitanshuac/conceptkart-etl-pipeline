@@ -9,7 +9,6 @@ All notification channels are optional and configured via environment
 variables (12-Factor compliant). Failure to notify never crashes the pipeline.
 """
 
-import json
 import os
 import requests
 

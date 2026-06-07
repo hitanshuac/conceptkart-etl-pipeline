@@ -35,7 +35,7 @@ except ImportError:
 PROVIDERS = {
     "groq": {
         "base_url": "https://api.groq.com/openai/v1",
-        "model": "llama3-8b-8192",
+        "model": "llama-3.1-8b-instant",
         "key_prefix": "gsk_",
     },
     "openrouter": {

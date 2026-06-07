@@ -321,3 +321,53 @@ h1 {
   gap: 0.75rem;
   font-size: 0.875rem;
 }
+.error-panel {
+  margin-top: 3rem;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+.error-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.error-panel-header h3 {
+  margin: 0;
+  color: var(--danger-color);
+  font-size: 1.25rem;
+}
+.error-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.error-item {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 1rem;
+  border-left: 4px solid var(--danger-color);
+}
+.error-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.error-url {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--accent-color);
+  margin-bottom: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.error-msg {
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: #fff;
+}

@@ -58,7 +58,7 @@ graph TD
 - **Local Analytics**: DuckDB & PyArrow (Parquet)
 - **Extraction**: `curl-cffi`, `Crawl4AI`, `BeautifulSoup4`
 - **Orchestration**: `APScheduler`
-- **AI Models**: Llama-3-8B (via Groq/OpenRouter/HF)
+- **AI Models**: Llama-3.1-8B-Instant (via Groq/OpenRouter/HF)
 
 ---
 

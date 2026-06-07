@@ -79,7 +79,7 @@ class Tier1HttpExtractor(BaseExtractor):
             # Detect homepage redirects (product removed)
             parsed_response = urlparse(str(response.url))
             if parsed_response.path in ("/", "") and urlparse(url).path not in ("/", ""):
-                print(f"  [Tier1] Redirected to homepage — product likely removed.")
+                print("  [Tier1] Redirected to homepage — product likely removed.")
                 self.circuit_breaker.record_failure(domain)
                 return None
 

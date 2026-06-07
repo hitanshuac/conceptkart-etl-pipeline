@@ -12,7 +12,6 @@ Non-blocking writes ensure telemetry never crashes the pipeline.
 
 import os
 import threading
-from datetime import datetime, timezone
 from typing import Optional
 
 from src.models import PipelineMetric
