@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.0 (2026-06-07)
+
+### Features
+
+- [Master Sync] finalize antigravity environment injection and showcase assets
+  ([`1fbf965`](https://github.com/hitanshuac/conceptkart-etl-pipeline/commit/1fbf96580f4925bf9eabddf1d1a264816c70bebd))
+
+
 ## v1.0.0 (2026-06-07)
 
 - Initial Release
