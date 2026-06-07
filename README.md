@@ -108,10 +108,20 @@ Once `main.py` finishes:
 2. Refresh the page. You should now see the product listed, its current price, and the historical trend chart populated with the newly scraped data point!
 
 ### 5. Running Continuously (Production)
-To run the scraper continuously in the background (default: every 6 hours):
+To run the scraper continuously in the background locally (default: every 6 hours):
 ```bash
 python daemon.py
 ```
+
+### 6. Cloud Deployment (Hugging Face Spaces)
+To deploy the pipeline to run autonomously 24/7 for free:
+1. Create a Docker Space on Hugging Face.
+2. Set your `HF_SPACE_REPO` and `HF_TOKEN` environment variables.
+3. Run the upload script:
+```bash
+python upload_to_hf.py
+```
+*This deploys a unified container that serves the React Dashboard on port `7860` while running the scraper daemon in the background.*
 
 ---
 
