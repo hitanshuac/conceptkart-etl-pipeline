@@ -19,7 +19,7 @@ exclude_commit_patterns = [
 
 [project]
 name = "conceptkart-etl-pipeline"
-version = "1.0.0"
+version = "1.1.0"
 description = "Production-Grade Dynamic Pricing Tracker"
 authors = [
     { name = "Antigravity Environment", email = "auto@example.com" }

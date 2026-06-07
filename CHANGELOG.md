@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.0 (2026-06-07)
+
+### Features
+
+- Upgrade to v2.0 and adopt openspec standard with python-semantic-release
+  ([`f069ad6`](https://github.com/hitanshuac/conceptkart-etl-pipeline/commit/f069ad663994524527a9e1695340053c92cf4aab))
+
+
 ## v1.0.0 (2026-06-07)
 
 - Initial Release
